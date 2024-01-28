@@ -1,0 +1,81 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cloudflare-ddns-cronjob
+spec:
+  schedule: "* * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+          - name: cloudflare-ddns-update
+            image: curlimages/curl
+            imagePullPolicy: IfNotPresent
+            env:
+            - name: UNIFI_URL
+              valueFrom:
+                secretKeyRef:
+                  name: cloudflare-ddns
+                  key: UNIFI_URL
+            - name: UNIFI_USER
+              valueFrom:
+                secretKeyRef:
+                  name: cloudflare-ddns
+                  key: UNIFI_USER
+            - name: UNIFI_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: cloudflare-ddns
+                  key: UNIFI_PASS
+            - name: ZONE_ID
+              valueFrom:
+                secretKeyRef:
+                  name: cloudflare-ddns
+                  key: ZONE_ID
+            - name: DNS_RECORD_ID
+              valueFrom:
+                secretKeyRef:
+                  name: cloudflare-ddns
+                  key: DNS_RECORD_ID
+            - name: TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: cloudflare-ddns
+                  key: TOKEN
+            - name: DOMAIN
+              valueFrom:
+                secretKeyRef:
+                  name: cloudflare-ddns
+                  key: DOMAIN
+            command: ["sh", "-c"]
+            args:
+            - |
+              set -x
+              
+              IP=$(cat /tmp/wanip)
+
+              curl -skm2 -X POST "$UNIFI_URL/api/auth/login" \
+                   -d "{\"username\":\"$UNIFI_USER\",\"password\":\"$UNIFI_PASS\"}" \
+                   -H 'content-type:application/json' \
+                   -c cookie.txt \
+                   > /dev/null
+
+              NEW_IP=$(curl -skm2 -b cookie.txt "$UNIFI_URL/proxy/network/api/s/default/stat/health" | sed -n 's/.*"wan_ip":"\([0-9.]\+\)".*/\1/p')
+              
+              if [ "$IP" != "$NEW_IP" ] && [ -n "$NEW_IP"  ]; then
+                echo "$NEW_IP" > /tmp/wanip
+
+                curl -sm2 -X PUT "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records/$DNS_RECORD_ID" \
+                     -H "Authorization: Bearer $TOKEN" \
+                     -H "Content-Type: application/json" \
+                     -d "{\"type\":\"A\",\"name\":\"$DOMAIN\",\"content\":\"$NEW_IP\"}" 
+              fi
+            volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          volumes:
+          - name: tmp
+            hostPath:
+              path: /tmp
