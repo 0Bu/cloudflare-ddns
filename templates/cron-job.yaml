@@ -53,8 +53,6 @@ spec:
             args:
             - |
               set -x
-              
-              IP=$(cat /tmp/wanip)
 
               curl -skm2 -X POST "$UNIFI_URL/api/auth/login" \
                    -d "{\"username\":\"$UNIFI_USER\",\"password\":\"$UNIFI_PASS\"}" \
@@ -62,20 +60,10 @@ spec:
                    -c cookie.txt \
                    > /dev/null
 
-              NEW_IP=$(curl -skm2 -b cookie.txt "$UNIFI_URL/proxy/network/api/s/default/stat/health" | sed -n 's/.*"wan_ip":"\([0-9.]\+\)".*/\1/p')
+              IP4=$(curl -skm2 -b cookie.txt "$UNIFI_URL/proxy/network/api/s/default/stat/health" | sed -n 's/.*"wan_ip":"\([0-9.]\+\)".*/\1/p')
               
-              if [ "$IP" != "$NEW_IP" ] && [ -n "$NEW_IP"  ]; then
-                echo "$NEW_IP" > /tmp/wanip
+              curl -sm2 -X PUT "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records/$DNS_RECORD_ID" \
+                   -H "Authorization: Bearer $TOKEN" \
+                   -H "Content-Type: application/json" \
+                   -d "{\"type\":\"A\",\"name\":\"$DOMAIN\",\"content\":\"$IP4\"}"
 
-                curl -sm2 -X PUT "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records/$DNS_RECORD_ID" \
-                     -H "Authorization: Bearer $TOKEN" \
-                     -H "Content-Type: application/json" \
-                     -d "{\"type\":\"A\",\"name\":\"$DOMAIN\",\"content\":\"$NEW_IP\"}" 
-              fi
-            volumeMounts:
-            - name: tmp
-              mountPath: /tmp
-          volumes:
-          - name: tmp
-            hostPath:
-              path: /tmp
