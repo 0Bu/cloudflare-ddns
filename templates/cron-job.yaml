@@ -60,10 +60,13 @@ spec:
                    -c cookie.txt \
                    > /dev/null
 
-              IP4=$(curl -skm2 -b cookie.txt "$UNIFI_URL/proxy/network/api/s/default/stat/health" | sed -n 's/.*"wan_ip":"\([0-9.]\+\)".*/\1/p')
+              IP4=$(curl -skm2 -b cookie.txt "$UNIFI_URL/proxy/network/api/s/default/stat/health" \
+                   | sed -n 's/.*"wan_ip":"\([0-9.]\+\)".*/\1/p')
               
-              curl -sm2 -X PUT "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records/$DNS_RECORD_ID" \
+              if [[ -n "$IP4" ]]; then
+                curl -sm2 -X PUT "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records/$DNS_RECORD_ID" \
                    -H "Authorization: Bearer $TOKEN" \
                    -H "Content-Type: application/json" \
                    -d "{\"type\":\"A\",\"name\":\"$DOMAIN\",\"content\":\"$IP4\"}"
+              fi
 
