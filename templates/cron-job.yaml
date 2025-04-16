@@ -54,17 +54,17 @@ spec:
             - |
               set -x
 
-              curl -skm2 -X POST "$UNIFI_URL/api/auth/login" \
+              curl -skm5 -X POST "$UNIFI_URL/api/auth/login" \
                    -d "{\"username\":\"$UNIFI_USER\",\"password\":\"$UNIFI_PASS\"}" \
                    -H 'content-type:application/json' \
                    -c cookie.txt \
                    > /dev/null
 
-              IP4=$(curl -skm2 -b cookie.txt "$UNIFI_URL/proxy/network/api/s/default/stat/health" \
+              IP4=$(curl -skm5 -b cookie.txt "$UNIFI_URL/proxy/network/api/s/default/stat/health" \
                    | sed -n 's/.*"wan_ip":"\([0-9.]\+\)".*/\1/p')
               
               if [[ -n "$IP4" ]]; then
-                curl -sm2 -X PUT "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records/$DNS_RECORD_ID" \
+                curl -sm5 -X PUT "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records/$DNS_RECORD_ID" \
                    -H "Authorization: Bearer $TOKEN" \
                    -H "Content-Type: application/json" \
                    -d "{\"type\":\"A\",\"name\":\"$DOMAIN\",\"content\":\"$IP4\"}"
